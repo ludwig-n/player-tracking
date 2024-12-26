@@ -2,6 +2,7 @@ import dataclasses
 import pathlib
 
 import bbox_visualizer as bbox
+import cv2
 import moviepy.video.io.ImageSequenceClip
 import pydantic
 import ultralytics.engine.results
@@ -30,6 +31,23 @@ def fit_interval(left: int, right: int, min_lim: int, max_lim: int) -> tuple[int
     return left + add, right + add
 
 
+async def get_player_times(
+    in_path: str | pathlib.Path,
+    boxes_list: list[ultralytics.engine.results.Boxes]
+) -> tuple[dict[int, int], dict[int, int]]:
+    with moviepy.VideoFileClip(in_path, audio=False) as clip:
+        fps = clip.fps
+
+    start_secs = {}
+    end_secs = {}
+    for frame_idx, boxes in enumerate(boxes_list):
+        if boxes.is_track:
+            upd = dict.fromkeys(boxes.id.int().tolist(), round(frame_idx / fps))
+            start_secs = upd | start_secs
+            end_secs = end_secs | upd
+    return start_secs, end_secs
+
+
 async def draw_bboxes(
     in_path: str | pathlib.Path,
     out_path: str | pathlib.Path,
@@ -52,6 +70,7 @@ async def draw_bboxes(
         out_frames.append(frame)
 
     moviepy.video.io.ImageSequenceClip.ImageSequenceClip(out_frames, fps=clip.fps).write_videofile(out_path)
+    clip.close()
 
 
 async def crop_to_player(
@@ -87,3 +106,21 @@ async def crop_to_player(
         out_frames.append(frame[rect.y1:rect.y2, rect.x1:rect.x2])
 
     moviepy.video.io.ImageSequenceClip.ImageSequenceClip(out_frames, fps=clip.fps).write_videofile(out_path)
+    clip.close()
+
+
+async def save_player_images(
+    in_path: str | pathlib.Path,
+    out_dir: str | pathlib.Path,
+    boxes_list: list[ultralytics.engine.results.Boxes]
+) -> None:
+    saved = set()
+    clip = moviepy.VideoFileClip(in_path, audio=False)
+    for frame, boxes in zip(clip.iter_frames(), boxes_list):
+        if boxes.is_track:
+            for xyxy, pid in zip(boxes.xyxy.round().int().tolist(), boxes.id.int().tolist()):
+                if pid not in saved:
+                    x1, y1, x2, y2 = xyxy
+                    cv2.imwrite(f"{out_dir}/{pid}.jpg", frame[y1:y2, x1:x2, ::-1])
+                    saved.add(pid)
+    clip.close()

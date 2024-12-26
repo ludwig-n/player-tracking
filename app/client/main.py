@@ -1,3 +1,6 @@
+import io
+import zipfile
+
 import requests
 import streamlit as st
 
@@ -10,8 +13,19 @@ class PlayerParams:
 def infer():
     st.session_state.clear()
     response = requests.post(f"{SERVER_URL}/infer", files={"video_file": video_file})
-    st.session_state.video = response.content
     st.session_state.player_ids = [int(x) for x in response.headers["player_ids"].split(",")]
+
+    for pid, time_range in zip(st.session_state.player_ids, response.headers["player_times"].split(",")):
+        start_secs_str, end_secs_str = time_range.split("-")
+        start_secs = int(start_secs_str)
+        end_secs = int(end_secs_str)
+        st.session_state[f"times{pid}"] = f"{start_secs // 60}:{start_secs % 60:02} - {end_secs // 60}:{end_secs % 60:02}"
+
+    archive = zipfile.ZipFile(io.BytesIO(response.content), "r")
+    st.session_state.video = archive.read("annotated.mp4")
+    for pid in st.session_state.player_ids:
+        st.session_state[f"image{pid}"] = archive.read(f"images/{pid}.jpg")
+
     set_all_checkboxes(True)
 
 
@@ -61,10 +75,15 @@ if "video" in st.session_state:
             columns = st.columns(3)
 
         with columns[(i - 1) % 3], st.expander(f"Player id{pid}", expanded=True):
+            st.columns([1, 2, 1])[1].image(
+                st.session_state[f"image{pid}"], caption=st.session_state[f"times{pid}"], use_container_width=True
+            )
+
             params.label = st.text_input(
                 "Custom label", placeholder="Custom label", label_visibility="collapsed", key=f"label{pid}"
             )
             params.draw = st.checkbox("Highlight in main video", value=True, key=f"draw{pid}")
+
             if f"focused{pid}" in st.session_state:
                 st.video(st.session_state[f"focused{pid}"])
             else:
