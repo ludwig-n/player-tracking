@@ -1,5 +1,6 @@
 import dataclasses
 import io
+import os
 import zipfile
 
 import requests
@@ -12,7 +13,7 @@ class PlayerParams:
     draw: bool
 
 
-SERVER_URL = "http://localhost:8500"
+SERVER_URL = os.environ.get("SERVER_URL", "http://localhost:8500")
 REQUEST_TIMEOUT = 60
 VIDEO_FORMATS = [
     "asf",

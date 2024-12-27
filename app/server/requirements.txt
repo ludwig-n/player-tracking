@@ -1,8 +1,8 @@
 bbox-visualizer~=0.1.0
 fastapi[standard]~=0.115.6
+lap>=0.5.12    # ultralytics dependency
 moviepy~=2.1.1
+opencv-contrib-python-headless~=4.10.0.84
 pydantic~=2.10.4
-requests~=2.32.3
-streamlit~=1.41.1
 ultralytics~=8.3.54
 uvicorn[standard]~=0.34.0
