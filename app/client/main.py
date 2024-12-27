@@ -1,6 +1,8 @@
 import dataclasses
 import io
+import logging.handlers
 import os
+import pathlib
 import zipfile
 
 import requests
@@ -15,6 +17,8 @@ class PlayerParams:
 
 SERVER_URL = os.environ.get("SERVER_URL", "http://localhost:8500")
 REQUEST_TIMEOUT = 60
+LOG_PATH = pathlib.Path("logs/client.log")
+LOG_PATH.parent.mkdir(exist_ok=True)
 VIDEO_FORMATS = [
     "asf",
     "avi",
@@ -37,14 +41,45 @@ def to_video_time(n_secs):
     return f"{n_secs // 60}:{n_secs % 60:02}"
 
 
+def try_post(url, **kwargs):
+    """
+    Tries to send a POST request to the server.
+    Returns None if an error occurs.
+    """
+    logging.info(f"Calling {url}, kwargs: {kwargs}")
+    try:
+        response = requests.post(url, timeout=REQUEST_TIMEOUT, **kwargs)
+        response.raise_for_status()
+    except requests.Timeout as e:
+        st.error("Server timed out")
+        logging.error(f"Server timed out: {e}")
+        return None
+    except requests.ConnectionError as e:
+        st.error("Could not connect to server")
+        logging.error(f"Connection error: {e}")
+        return None
+    except requests.HTTPError as e:
+        st.error("Something went wrong after server request")
+        logging.error(f"Server returned an error code: {e}")
+        return None
+    except requests.RequestException as e:
+        st.error("Something went wrong after server request")
+        logging.error(f"Unknown request error: {e}")
+        return None
+    logging.info("Got response successfully")
+    return response
+
+
 def infer(video_file):
     """Infers the model on a new video file and resets the interface."""
     st.session_state.clear()
-    response = requests.post(
-        f"{SERVER_URL}/infer",
-        files={"video_file": video_file},
-        timeout=REQUEST_TIMEOUT,
+
+    response = try_post(
+        f"{SERVER_URL}/infer", files={"video_file": video_file}
     )
+    if response is None:
+        return
+
     st.session_state.player_ids = [
         int(x) for x in response.headers["player_ids"].split(",")
     ]
@@ -70,23 +105,24 @@ def infer(video_file):
 def regenerate_video(params_dict):
     """Regenerates the annotated video based on the current params."""
     del st.session_state.video
-    st.session_state.video = requests.post(
+    response = try_post(
         f"{SERVER_URL}/make_video",
         json={
             pid: {"label": params.label, "draw": params.draw}
             for pid, params in params_dict.items()
         },
-        timeout=REQUEST_TIMEOUT,
-    ).content
+    )
+    if response is not None:
+        st.session_state.video = response.content
 
 
 def get_focused_video(player_id):
     """Generates a video focused on a specific player."""
-    st.session_state[f"focused{player_id}"] = requests.post(
-        f"{SERVER_URL}/make_focused_video",
-        params={"player_id": player_id},
-        timeout=REQUEST_TIMEOUT,
-    ).content
+    response = try_post(
+        f"{SERVER_URL}/make_focused_video", params={"player_id": player_id}
+    )
+    if response is not None:
+        st.session_state[f"focused{player_id}"] = response.content
 
 
 def set_all_inputs(value):
@@ -178,4 +214,12 @@ def build_app():
                     )
 
 
-build_app()
+if __name__ == "__main__":
+    log_handler = logging.handlers.TimedRotatingFileHandler(
+        filename=LOG_PATH, when="D", backupCount=7
+    )
+
+    # Does nothing if any handlers are already set up
+    logging.basicConfig(handlers=[log_handler], level=logging.INFO)
+
+    build_app()
