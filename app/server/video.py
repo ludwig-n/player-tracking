@@ -24,6 +24,10 @@ class Rect:
 def fit_interval(
     left: int, right: int, min_lim: int, max_lim: int
 ) -> tuple[int, int]:
+    """
+    Fits the interval `[left, right]` inside `[min_lim, max_lim]`
+    by adding a constant to both ends if necessary.
+    """
     if left < min_lim:
         add = min_lim - left
     elif right > max_lim:
@@ -37,6 +41,10 @@ async def get_player_times(
     in_path: str | pathlib.Path,
     boxes_list: list[ultralytics.engine.results.Boxes],
 ) -> tuple[dict[int, int], dict[int, int]]:
+    """
+    Gets time ranges of each player being present in the video at `in_path`
+    using `boxes_list` - a list of ultralytics `Boxes` objects for each frame.
+    """
     with moviepy.VideoFileClip(in_path, audio=False) as clip:
         fps = clip.fps
 
@@ -58,6 +66,11 @@ async def draw_bboxes(
     boxes_list: list[ultralytics.engine.results.Boxes],
     params_dict: dict[int, PlayerParams],
 ) -> None:
+    """
+    Reads a video from `in_path` and draws bounding boxes and labels on it
+    using `boxes_list` according to `params_dict`.
+    The new video is saved to `out_path`.
+    """
     clip = moviepy.VideoFileClip(in_path, audio=False)
 
     out_frames = []
@@ -87,6 +100,11 @@ async def crop_to_player(
     boxes_list: list[ultralytics.engine.results.Boxes],
     player_id: int,
 ) -> None:
+    """
+    Reads a video from `in_path` and crops it to the movements of a single
+    player with id `player_id` using `boxes_list`.
+    The new video is saved to `out_path`.
+    """
     rects = []
     for boxes in boxes_list:
         if boxes.is_track:
@@ -124,6 +142,10 @@ async def save_player_images(
     out_dir: str | pathlib.Path,
     boxes_list: list[ultralytics.engine.results.Boxes],
 ) -> None:
+    """
+    Reads a video from `in_path` and saves an image of each player from their
+    first detection using `boxes_list`. The images are saved to `out_dir`.
+    """
     saved = set()
     clip = moviepy.VideoFileClip(in_path, audio=False)
     for frame, boxes in zip(clip.iter_frames(), boxes_list):

@@ -25,6 +25,16 @@ model = ultralytics.YOLO(MODEL_PATH)
 
 @app.post("/infer", response_class=fastapi.responses.FileResponse)
 async def infer(video_file: fastapi.UploadFile):
+    """
+    Infers the tracking model on a video file.
+    Returns a zip file with:
+      - a new video with added boxes and labels highlighting the players,
+      - an image of each detected player from their first detection.
+
+    The response headers contain:
+      - ids of all detected players (player_ids),
+      - time ranges when each player was present in the video (player_times).
+    """
     original_path = ORIGINAL_PATH_NO_SUFFIX.with_suffix(
         pathlib.Path(video_file.filename).suffix
     )
@@ -73,6 +83,10 @@ async def infer(video_file: fastapi.UploadFile):
 
 @app.post("/make_video", response_class=fastapi.responses.FileResponse)
 async def make_video(player_params: dict[int, video.PlayerParams]):
+    """
+    Generates a video with bounding boxes and labels like /infer,
+    but using custom visualization parameters.
+    """
     if not hasattr(app.state, "player_ids"):
         raise fastapi.HTTPException(
             fastapi.status.HTTP_400_BAD_REQUEST, "/infer must be called first"
@@ -93,6 +107,7 @@ async def make_video(player_params: dict[int, video.PlayerParams]):
 
 @app.post("/make_focused_video", response_class=fastapi.responses.FileResponse)
 async def make_focused_video(player_id: int):
+    """Generates a video focused on a specific player's movements."""
     if not hasattr(app.state, "player_ids"):
         raise fastapi.HTTPException(
             fastapi.status.HTTP_400_BAD_REQUEST, "/infer must be called first"

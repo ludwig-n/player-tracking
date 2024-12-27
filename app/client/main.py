@@ -33,10 +33,12 @@ VIDEO_FORMATS = [
 
 
 def to_video_time(n_secs):
+    """Converts `n_secs` seconds to a video timestamp (e.g. 63 -> 1:03)."""
     return f"{n_secs // 60}:{n_secs % 60:02}"
 
 
 def infer(video_file):
+    """Infers the model on a new video file and resets the interface."""
     st.session_state.clear()
     response = requests.post(
         f"{SERVER_URL}/infer",
@@ -66,6 +68,7 @@ def infer(video_file):
 
 
 def regenerate_video(params_dict):
+    """Regenerates the annotated video based on the current params."""
     del st.session_state.video
     st.session_state.video = requests.post(
         f"{SERVER_URL}/make_video",
@@ -78,6 +81,7 @@ def regenerate_video(params_dict):
 
 
 def get_focused_video(player_id):
+    """Generates a video focused on a specific player."""
     st.session_state[f"focused{player_id}"] = requests.post(
         f"{SERVER_URL}/make_focused_video",
         params={"player_id": player_id},
@@ -86,16 +90,20 @@ def get_focused_video(player_id):
 
 
 def set_all_inputs(value):
+    """Sets all text inputs' values to `value`."""
     for pid in st.session_state.player_ids:
         st.session_state[f"label{pid}"] = value
 
 
 def set_all_checkboxes(value):
+    """Sets all checkboxes' states to `value` (bool)."""
     for pid in st.session_state.player_ids:
         st.session_state[f"draw{pid}"] = value
 
 
 def build_app():
+    """Builds the client interface."""
+
     st.title("Player Tracking")
 
     video_file = st.file_uploader("Upload video", VIDEO_FORMATS)
