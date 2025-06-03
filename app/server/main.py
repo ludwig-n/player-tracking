@@ -9,8 +9,6 @@ import tracking
 import video
 
 
-BOTSORT_CONFIG_PATH = pathlib.Path("config/botsort.yaml")
-
 RESULTS_DIR = pathlib.Path("results")
 IMAGES_DIR = RESULTS_DIR / "images"
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
@@ -27,10 +25,13 @@ app = fastapi.FastAPI()
 
 @app.post("/infer", response_class=fastapi.responses.FileResponse)
 async def infer(
-    video_file: fastapi.UploadFile, detector_name: str = "march-best"
+    video_file: fastapi.UploadFile,
+    detector_name: str = "march-best",
+    tracker_name: str = "raft",
 ):
     """
-    Infers the detector `detector_name` on a video file.
+    Infers the detector `detector_name` and tracker `tracker_name`
+    on a video file.
 
     Returns a zip file with:
       - a new video with added boxes and labels highlighting the players,
@@ -58,8 +59,20 @@ async def infer(
             f"detector {detector_name} not found",
         )
 
-    results = tracking.DETECTORS[detector_name].track(
-        source=original_path, tracker=BOTSORT_CONFIG_PATH
+    if tracker_name not in tracking.TRACKERS:
+        logging.warning(
+            f"tracker {tracker_name} not found in available trackers "
+            f"{list(tracking.TRACKERS.keys())}"
+        )
+        raise fastapi.HTTPException(
+            fastapi.status.HTTP_404_NOT_FOUND,
+            f"tracker {tracker_name} not found",
+        )
+
+    results = tracking.track(
+        source=original_path,
+        detector=tracking.DETECTORS[detector_name],
+        tracker=tracking.TRACKERS[tracker_name],
     )
     boxes_list = [res.boxes for res in results]
 
