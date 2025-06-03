@@ -3,6 +3,7 @@ import pathlib
 import zipfile
 
 import fastapi
+import pydantic
 import uvicorn
 
 import tracking
@@ -21,6 +22,31 @@ ANNOTATED_PATH = RESULTS_DIR / "annotated.mp4"
 ZIP_PATH = RESULTS_DIR / "archive.zip"
 
 app = fastapi.FastAPI()
+
+
+class Model(pydantic.BaseModel):
+    slug: str
+    ui_name: str
+
+
+class GetModelsResponse(pydantic.BaseModel):
+    detectors: list[Model]
+    trackers: list[Model]
+
+
+@app.get("/get_models")
+async def get_models() -> GetModelsResponse:
+    logging.info("Received GET /get_models. Returning model lists")
+    return GetModelsResponse(
+        detectors=[
+            Model(slug=slug, ui_name=detector.ui_name)
+            for slug, detector in tracking.DETECTORS.items()
+        ],
+        trackers=[
+            Model(slug=slug, ui_name=tracker.ui_name)
+            for slug, tracker in tracking.TRACKERS.items()
+        ],
+    )
 
 
 @app.post("/infer", response_class=fastapi.responses.FileResponse)
