@@ -52,12 +52,11 @@ async def get_models() -> GetModelsResponse:
 @app.post("/infer", response_class=fastapi.responses.FileResponse)
 async def infer(
     video_file: fastapi.UploadFile,
-    detector_name: str = "march-best",
-    tracker_name: str = "raft",
+    detector: str = "march-best",
+    tracker: str = "raft",
 ):
     """
-    Infers the detector `detector_name` and tracker `tracker_name`
-    on a video file.
+    Infers the chosen detector and tracker on a video file.
 
     Returns a zip file with:
       - a new video with added boxes and labels highlighting the players,
@@ -75,30 +74,30 @@ async def infer(
     with open(original_path, "wb") as fout:
         fout.write(await video_file.read())
 
-    if detector_name not in tracking.DETECTORS:
+    if detector not in tracking.DETECTORS:
         logging.warning(
-            f"detector {detector_name} not found in available detectors "
+            f"detector {detector} not found in available detectors "
             f"{list(tracking.DETECTORS.keys())}"
         )
         raise fastapi.HTTPException(
             fastapi.status.HTTP_404_NOT_FOUND,
-            f"detector {detector_name} not found",
+            f"detector {detector} not found",
         )
 
-    if tracker_name not in tracking.TRACKERS:
+    if tracker not in tracking.TRACKERS:
         logging.warning(
-            f"tracker {tracker_name} not found in available trackers "
+            f"tracker {tracker} not found in available trackers "
             f"{list(tracking.TRACKERS.keys())}"
         )
         raise fastapi.HTTPException(
             fastapi.status.HTTP_404_NOT_FOUND,
-            f"tracker {tracker_name} not found",
+            f"tracker {tracker} not found",
         )
 
     results = tracking.track(
         source=original_path,
-        detector=tracking.DETECTORS[detector_name],
-        tracker=tracking.TRACKERS[tracker_name],
+        detector=tracking.DETECTORS[detector],
+        tracker=tracking.TRACKERS[tracker],
     )
     boxes_list = [res.boxes for res in results]
 

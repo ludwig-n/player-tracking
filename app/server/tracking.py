@@ -123,17 +123,17 @@ def track(
 DETECTORS = {
     "march-best": Detector(
         weights_path="models/march-best.pt",
-        ui_name="best yolo11l",
+        ui_name="Best fine-tuned YOLO11l",
         model_class=ultralytics.YOLO,
     ),
     "march-best-s": Detector(
         weights_path="models/march-best-s.pt",
-        ui_name="best yolo11s",
+        ui_name="Best fine-tuned YOLO11s",
         model_class=ultralytics.YOLO,
     ),
     "baseline": Detector(
         weights_path="models/baseline.pt",
-        ui_name="baseline yolo11s",
+        ui_name="Baseline fine-tuned YOLO11s",
         model_class=ultralytics.YOLO,
     ),
 }
@@ -141,7 +141,7 @@ DETECTORS = {
 TRACKERS = {
     "raft": Tracker(
         cfg_path="config/botsort.yaml",
-        ui_name="RAFT",
+        ui_name="BoT-SORT + RAFT",
         gmc_class=RaftGMC,
         gmc_args={},
     ),
@@ -149,7 +149,7 @@ TRACKERS = {
 TRACKERS |= {
     f"spofl-{downscale}x": Tracker(
         cfg_path="config/botsort.yaml",
-        ui_name=f"Sparse Optical Flow ({downscale}x downscale)",
+        ui_name=f"BoT-SORT + Sparse OF ({downscale}x downscale)",
         gmc_class=ultralytics.trackers.utils.gmc.GMC,
         gmc_args=dict(method="sparseOptFlow", downscale=downscale),
     )
