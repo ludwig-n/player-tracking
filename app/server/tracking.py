@@ -27,8 +27,15 @@ class GMC(tp.Protocol):
     to implement a new GMC method within BoT-SORT.
     """
 
-    def apply(self, raw_frame: np.ndarray, detections: list) -> np.ndarray: ...
-    def reset_params(self) -> None: ...
+    def apply(self, raw_frame: np.ndarray, detections: list) -> np.ndarray:
+        """
+        `raw_frame`: frame with shape [H, W, C].
+        `detections`: list of detections for this frame.
+        Returns a 2x3 homography matrix.
+        """
+
+    def reset_params(self) -> None:
+        """Resets all internal parameters (e.g. last seen frame)."""
 
 
 class RaftGMC:
@@ -40,10 +47,14 @@ class RaftGMC:
     ) -> None:
         if model_size == "small":
             wgts = torchvision.models.optical_flow.Raft_Small_Weights.DEFAULT
-            self.model = torchvision.models.optical_flow.raft_small(wgts)
+            self.model = torchvision.models.optical_flow.raft_small(
+                weights=wgts
+            )
         elif model_size == "large":
             wgts = torchvision.models.optical_flow.Raft_Large_Weights.DEFAULT
-            self.model = torchvision.models.optical_flow.raft_large(wgts)
+            self.model = torchvision.models.optical_flow.raft_large(
+                weights=wgts
+            )
         else:
             raise ValueError
 
@@ -54,7 +65,9 @@ class RaftGMC:
         self.last_frame = None
 
     def apply(
-        self, raw_frame: np.ndarray, detections: list = None
+        self,
+        raw_frame: np.ndarray,
+        detections: list = None,  # pylint: disable=unused-argument
     ) -> np.ndarray:
         """
         `raw_frame`: frame with shape [H, W, C].
@@ -90,10 +103,17 @@ class RaftGMC:
         return hom
 
     def reset_params(self) -> None:
+        """Forgets the last seen frame before tracking a new clip."""
         self.last_frame = None
 
 
-def scale_raft_flow(flow: torch.Tensor, **kwargs) -> torch.Tensor:
+def scale_raft_flow(flow: torch.Tensor, **_) -> torch.Tensor:
+    """
+    Scales a tensor by a factor of 8.
+    Used to replace the upscaling function in the torchvision RAFT model
+    (`torchvision.models.optical_flow.raft.upsample_flow`),
+    since we don't need upscaling for this task.
+    """
     return flow * 8
 
 
@@ -108,9 +128,10 @@ class Tracker:
 def track(
     source: str, detector: Detector, tracker: Tracker
 ) -> list[ultralytics.engine.results.Results]:
+    """Performs tracking on `source` using `detector` and `tracker`."""
     model = detector.model_class(detector.weights_path)
 
-    def gmc_patch(method: str) -> GMC:
+    def gmc_patch(method: str) -> GMC:  # pylint: disable=unused-argument
         """Deliberately ignores `method` in favor of our GMC class."""
         return tracker.gmc_class(**tracker.gmc_args)
 
@@ -151,7 +172,7 @@ TRACKERS |= {
         cfg_path="config/botsort.yaml",
         ui_name=f"BoT-SORT + Sparse OF ({downscale}x downscale)",
         gmc_class=ultralytics.trackers.utils.gmc.GMC,
-        gmc_args=dict(method="sparseOptFlow", downscale=downscale),
+        gmc_args={"method": "sparseOptFlow", "downscale": downscale},
     )
     for downscale in [2, 8, 10, 16, 20]
 }

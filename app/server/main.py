@@ -36,6 +36,7 @@ class GetModelsResponse(pydantic.BaseModel):
 
 @app.get("/get_models")
 async def get_models() -> GetModelsResponse:
+    """Lists the detectors and trackers available on the server."""
     logging.info("Received GET /get_models. Returning model lists")
     return GetModelsResponse(
         detectors=[

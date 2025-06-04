@@ -15,7 +15,11 @@ fuse_score: True # Whether to fuse confidence scores with the iou distances befo
 # min_box_area: 10  # threshold for min box areas(for tracker evaluation, not used for now)
 
 # BoT-SORT settings
-gmc_method: sparseOptFlow # method of global motion compensation
+
+# We allow the user to choose the GMC method, including custom ones e.g. RAFT.
+# We do this by replacing the stock GMC class via monkeypatch
+# and the `gmc_method` config parameter is never used (see gmc_patch in tracking.py)
+gmc_method: overridden
 # ReID model related thresh (not supported yet)
 proximity_thresh: 0.5
 appearance_thresh: 0.25

@@ -166,11 +166,11 @@ def build_app():
     if "models" not in st.session_state:
         get_models()
 
-    col_det, col_trk = st.columns(2)
+    selectbox_columns = st.columns(2)
 
     detectors = st.session_state.models["detectors"]
     det_slugs = [det["slug"] for det in detectors]
-    selected_detector = col_det.selectbox(
+    selected_detector = selectbox_columns[0].selectbox(
         "Detector:",
         options=det_slugs,
         format_func=lambda slug: detectors[det_slugs.index(slug)]["ui_name"],
@@ -178,7 +178,7 @@ def build_app():
 
     trackers = st.session_state.models["trackers"]
     trk_slugs = [trk["slug"] for trk in trackers]
-    selected_tracker = col_trk.selectbox(
+    selected_tracker = selectbox_columns[1].selectbox(
         "Tracker:",
         options=trk_slugs,
         format_func=lambda slug: trackers[trk_slugs.index(slug)]["ui_name"],
