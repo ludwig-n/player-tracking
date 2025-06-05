@@ -152,6 +152,11 @@ DETECTORS = {
         ui_name="Best fine-tuned YOLO11s",
         model_class=ultralytics.YOLO,
     ),
+    "march-best-rtdetr": Detector(
+        weights_path="models/march-best-rtdetr.pt",
+        ui_name="Best fine-tuned RT-DETR-L",
+        model_class=ultralytics.RTDETR,
+    ),
     "baseline": Detector(
         weights_path="models/baseline.pt",
         ui_name="Baseline fine-tuned YOLO11s",
