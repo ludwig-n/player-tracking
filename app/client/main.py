@@ -41,14 +41,16 @@ def to_video_time(n_secs):
     return f"{n_secs // 60}:{n_secs % 60:02}"
 
 
-def try_post(url, **kwargs):
+def try_request(method, url, **kwargs):
     """
-    Tries to send a POST request to the server.
+    Tries to send a request to the server.
     Returns None if an error occurs.
     """
-    logging.info(f"Calling {url}, kwargs: {kwargs}")
+    logging.info(f"Calling {method} {url}, kwargs: {kwargs}")
     try:
-        response = requests.post(url, timeout=REQUEST_TIMEOUT, **kwargs)
+        response = requests.request(
+            method=method, url=url, timeout=REQUEST_TIMEOUT, **kwargs
+        )
         response.raise_for_status()
     except requests.Timeout as e:
         st.error("Server timed out")
@@ -70,12 +72,26 @@ def try_post(url, **kwargs):
     return response
 
 
-def infer(video_file):
-    """Infers the model on a new video file and resets the interface."""
-    st.session_state.clear()
+def get_models():
+    """Gets and stores the list of detectors and trackers from the server."""
+    st.session_state.models = try_request(
+        method="GET", url=f"{SERVER_URL}/get_models"
+    ).json()
 
-    response = try_post(
-        f"{SERVER_URL}/infer", files={"video_file": video_file}
+
+def infer(video_file, detector, tracker):
+    """Infers the model on a new video file and resets the interface."""
+
+    # Clear session state except for models lists (these don't change)
+    models = st.session_state.models
+    st.session_state.clear()
+    st.session_state.models = models
+
+    response = try_request(
+        method="POST",
+        url=f"{SERVER_URL}/infer",
+        files={"video_file": video_file},
+        params={"detector": detector, "tracker": tracker},
     )
     if response is None:
         return
@@ -105,8 +121,9 @@ def infer(video_file):
 def regenerate_video(params_dict):
     """Regenerates the annotated video based on the current params."""
     del st.session_state.video
-    response = try_post(
-        f"{SERVER_URL}/make_video",
+    response = try_request(
+        method="POST",
+        url=f"{SERVER_URL}/make_video",
         json={
             pid: {"label": params.label, "draw": params.draw}
             for pid, params in params_dict.items()
@@ -118,8 +135,10 @@ def regenerate_video(params_dict):
 
 def get_focused_video(player_id):
     """Generates a video focused on a specific player."""
-    response = try_post(
-        f"{SERVER_URL}/make_focused_video", params={"player_id": player_id}
+    response = try_request(
+        method="POST",
+        url=f"{SERVER_URL}/make_focused_video",
+        params={"player_id": player_id},
     )
     if response is not None:
         st.session_state[f"focused{player_id}"] = response.content
@@ -144,12 +163,33 @@ def build_app():
 
     video_file = st.file_uploader("Upload video", VIDEO_FORMATS)
 
+    if "models" not in st.session_state:
+        get_models()
+
+    selectbox_columns = st.columns(2)
+
+    detectors = st.session_state.models["detectors"]
+    det_slugs = [det["slug"] for det in detectors]
+    selected_detector = selectbox_columns[0].selectbox(
+        "Detector:",
+        options=det_slugs,
+        format_func=lambda slug: detectors[det_slugs.index(slug)]["ui_name"],
+    )
+
+    trackers = st.session_state.models["trackers"]
+    trk_slugs = [trk["slug"] for trk in trackers]
+    selected_tracker = selectbox_columns[1].selectbox(
+        "Tracker:",
+        options=trk_slugs,
+        format_func=lambda slug: trackers[trk_slugs.index(slug)]["ui_name"],
+    )
+
     st.columns([3, 2, 3])[1].button(
         "Track!",
         use_container_width=True,
         type="primary",
         on_click=infer,
-        args=(video_file,),
+        args=(video_file, selected_detector, selected_tracker),
     )
 
     if "video" in st.session_state:

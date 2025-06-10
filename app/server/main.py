@@ -3,14 +3,12 @@ import pathlib
 import zipfile
 
 import fastapi
-import ultralytics.engine.results
+import pydantic
 import uvicorn
 
+import tracking
 import video
 
-
-MODEL_PATH = pathlib.Path("models/baseline.pt")
-BOTSORT_CONFIG_PATH = pathlib.Path("config/botsort.yaml")
 
 RESULTS_DIR = pathlib.Path("results")
 IMAGES_DIR = RESULTS_DIR / "images"
@@ -24,13 +22,43 @@ ANNOTATED_PATH = RESULTS_DIR / "annotated.mp4"
 ZIP_PATH = RESULTS_DIR / "archive.zip"
 
 app = fastapi.FastAPI()
-model = ultralytics.YOLO(MODEL_PATH)
+
+
+class Model(pydantic.BaseModel):
+    slug: str
+    ui_name: str
+
+
+class GetModelsResponse(pydantic.BaseModel):
+    detectors: list[Model]
+    trackers: list[Model]
+
+
+@app.get("/get_models")
+async def get_models() -> GetModelsResponse:
+    """Lists the detectors and trackers available on the server."""
+    logging.info("Received GET /get_models. Returning model lists")
+    return GetModelsResponse(
+        detectors=[
+            Model(slug=slug, ui_name=detector.ui_name)
+            for slug, detector in tracking.DETECTORS.items()
+        ],
+        trackers=[
+            Model(slug=slug, ui_name=tracker.ui_name)
+            for slug, tracker in tracking.TRACKERS.items()
+        ],
+    )
 
 
 @app.post("/infer", response_class=fastapi.responses.FileResponse)
-async def infer(video_file: fastapi.UploadFile):
+async def infer(
+    video_file: fastapi.UploadFile,
+    detector: str,
+    tracker: str,
+):
     """
-    Infers the tracking model on a video file.
+    Infers the chosen detector and tracker on a video file.
+
     Returns a zip file with:
       - a new video with added boxes and labels highlighting the players,
       - an image of each detected player from their first detection.
@@ -47,7 +75,31 @@ async def infer(video_file: fastapi.UploadFile):
     with open(original_path, "wb") as fout:
         fout.write(await video_file.read())
 
-    results = model.track(original_path, tracker=BOTSORT_CONFIG_PATH)
+    if detector not in tracking.DETECTORS:
+        logging.warning(
+            f"detector {detector} not found in available detectors "
+            f"{list(tracking.DETECTORS.keys())}"
+        )
+        raise fastapi.HTTPException(
+            fastapi.status.HTTP_404_NOT_FOUND,
+            f"detector {detector} not found",
+        )
+
+    if tracker not in tracking.TRACKERS:
+        logging.warning(
+            f"tracker {tracker} not found in available trackers "
+            f"{list(tracking.TRACKERS.keys())}"
+        )
+        raise fastapi.HTTPException(
+            fastapi.status.HTTP_404_NOT_FOUND,
+            f"tracker {tracker} not found",
+        )
+
+    results = tracking.track(
+        source=original_path,
+        detector=tracking.DETECTORS[detector],
+        tracker=tracking.TRACKERS[tracker],
+    )
     boxes_list = [res.boxes for res in results]
 
     start_time, end_time = await video.get_player_times(
