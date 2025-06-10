@@ -53,8 +53,8 @@ async def get_models() -> GetModelsResponse:
 @app.post("/infer", response_class=fastapi.responses.FileResponse)
 async def infer(
     video_file: fastapi.UploadFile,
-    detector: str = "march-best",
-    tracker: str = "raft",
+    detector: str,
+    tracker: str,
 ):
     """
     Infers the chosen detector and tracker on a video file.
